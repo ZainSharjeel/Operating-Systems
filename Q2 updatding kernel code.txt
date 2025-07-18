@@ -1,0 +1,63 @@
+Q2:
+
+#include "types.h"
+#include "x86.h"
+#include "defs.h"
+#include "param.h"
+#include "memlayout.h"
+#include "mmu.h"
+#include "proc.h"
+#include "syscall.h"
+
+extern int sys_fork(void);
+extern int sys_exit(void);
+// ... other system call prototypes
+
+// Array of system call functions
+static int (*syscalls[])(void) = {
+  [SYS_fork]    sys_fork,
+  [SYS_exit]    sys_exit,
+  // ... other system calls
+};
+
+int syscall_count[MAX_SYSCALL] = {0}; // New: to store syscall counts for each process
+
+void
+syscall(void)
+{
+  int num;
+  struct proc *curproc = myproc();
+
+  num = curproc->tf->eax;
+  if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
+    curproc->tf->eax = syscalls[num]();  // Invoke the system call
+    syscall_count[num]++;                 // Increment the system call count
+  } else {
+    cprintf("%d %s: unknown sys call %d\n",
+            curproc->pid, curproc->name, num);
+    curproc->tf->eax = -1;
+  }
+}
+
+extern int syscall_count[MAX_SYSCALL];
+
+int
+sys_getsyscallcount(void)
+{
+  int syscall_num;
+
+  // Retrieve the system call number passed by the user
+  if(argint(0, &syscall_num) < 0 || syscall_num < 0 || syscall_num >= MAX_SYSCALL)
+    return -1;
+
+  return syscall_count[syscall_num];
+}
+
+#define SYS_getsyscallcount 22  
+
+// Declaration of the new system call
+int sys_getsyscallcount(void);
+
+SYSCALL(getsyscallcount)
+
+[SYS_getsyscallcount] sys_getsyscallcount,
